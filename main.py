@@ -1,4 +1,5 @@
 import argparse
+import sys
 import os
 
 from dotenv import load_dotenv
@@ -30,8 +31,15 @@ def main() -> None:
     if args.verbose:
         print(f"User prompt: {args.user_prompt}\n")
 
-    generate_content(client, messages, args.verbose)
+    for _ in range(20):
+        final_response = generate_content(client, messages, args.verbose)
+        if final_response is not None:
+            print("Final response:")
+            print(final_response)
+            return
 
+    print("Error: Maximum iterations reached without a final response.")
+    sys.exit(1)
 
 def generate_content(client: OpenAI, messages: list, verbose: bool) -> None:
     response = client.chat.completions.create(
@@ -47,10 +55,10 @@ def generate_content(client: OpenAI, messages: list, verbose: bool) -> None:
         print("Response tokens:", response.usage.completion_tokens)
     
     message = response.choices[0].message
+    messages.append(message)
+
     if not message.tool_calls:
-        print("Response:")
-        print(message.content)
-        return
+        return message.content
 
     for tool_call in message.tool_calls:
         if tool_call.type != "function":
@@ -62,6 +70,9 @@ def generate_content(client: OpenAI, messages: list, verbose: bool) -> None:
             )
         if verbose:
             print(f"-> {result_message['content']}")
+        messages.append(result_message)
+
+    return None
 
 
 if __name__ == "__main__":
