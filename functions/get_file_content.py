@@ -1,38 +1,41 @@
 import os
+
 from config import MAX_CHARS
-from google.genai import types
 
-def get_file_content(working_directory, file_path):
-    working_dir_abs = os.path.abspath(working_directory)
-    target_file = os.path.normpath(os.path.join(working_dir_abs, file_path))
 
-    # Check if file_path is inside working_directory
-    valid_target_file = os.path.commonpath([working_dir_abs, target_file]) == working_dir_abs
-
-    if not valid_target_file:
-        return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
-
-    # Check if full_path is a directory
-    if not os.path.isfile(target_file):
-        return f'Error: File not found or is not a regular file: "{file_path}"'
-    
-    with open(target_file, "r") as f:
-        content = f.read(MAX_CHARS)
-        if f.read(1):
-            content += f'[...File "{file_path}" truncated at {MAX_CHARS} characters]'
+def get_file_content(working_directory: str, file_path: str) -> str:
+    try:
+        abs_working_dir = os.path.abspath(working_directory)
+        abs_file_path = os.path.normpath(os.path.join(abs_working_dir, file_path))
+        if os.path.commonpath([abs_working_dir, abs_file_path]) != abs_working_dir:
+            return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
+        if not os.path.isfile(abs_file_path):
+            return f'Error: File not found or is not a regular file: "{file_path}"'
+        with open(abs_file_path, "r") as f:
+            content = f.read(MAX_CHARS)
+            if f.read(1):
+                content += (
+                    f'[...File "{file_path}" truncated at {MAX_CHARS} characters]'
+                )
         return content
-       
-schema_get_file_content = types.FunctionDeclaration(
-    name="get_file_content",
-    description="Reads and returns the content of a file at the specified path relative to the working directory, truncating at MAX_CHARS if the file is too large",
-    parameters=types.Schema(
-        type=types.Type.OBJECT,
-        properties={
-            "file_path": types.Schema(
-                type=types.Type.STRING,
-                description="Path to the file to read, relative to the working directory",
-            ),
+    except Exception as e:
+        return f'Error reading file "{file_path}": {e}'
+
+
+schema_get_file_content = {
+    "type": "function",
+    "function": {
+        "name": "get_file_content",
+        "description": f"Retrieves the content (at most {MAX_CHARS} characters) of a specified file within the working directory",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to read, relative to the working directory",
+                },
+            },
+            "required": ["file_path"],
         },
-        required=["file_path"],
-    ),
-)
+    },
+}
